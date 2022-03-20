@@ -1,0 +1,387 @@
+<html>
+   <head>
+      <title>App Eye</title>
+      <script type = "text/javascript" src = "https://www.gstatic.com/charts/loader.js">
+      </script>
+      <script type = "text/javascript" src = "https://www.google.com/jsapi">
+      </script>
+      <script type = "text/javascript">
+         google.charts.load('current', {packages: ['treemap']});     
+      </script>
+
+      <style>
+         body{
+            font-family: 'Avenir Next';
+         }
+
+         table, th, td {
+            border: 1px solid black;
+            border-collapse: collapse;
+            margin-left:auto;
+            margin-right:auto;
+         }
+
+         th, td {
+            text-align: center;
+            padding: 10px;
+         }
+
+         th {
+            background-color:lightgray;
+         }
+      </style>
+   </head>
+   
+   <body>
+      <p align="center" style="text-align: center;">
+         <h2 style="text-align: center;">AppEye: iOS App X-Ray Scan</h2>
+         <div id = "container" style = "width: 90%; height: 80%; margin: 0 auto">
+         </div>
+         
+         <h3 style="text-align: center; margin-top: 50;">Changed file and sizes</h3>
+
+         <table id = "sizeDiffTable">
+            <tr>
+               <th>File Name</th>
+               <th>Old File Size</th>
+               <th>New File Size</th>
+            </tr>
+         </table>
+      </p>
+
+      <script language = "JavaScript">
+         function insertRowInSizeDiffTable(fileName, oldSize, newSize, sizeDifference) {
+            var sizeDifferenceTable = document.getElementById("sizeDiffTable");
+            var sizeDiffTableBody = sizeDifferenceTable.getElementsByTagName("tbody")[0];
+
+            var row = document.createElement("tr");
+
+            var cellFileName = document.createElement("td");
+            var fileNameText = document.createTextNode(fileName);
+            cellFileName.appendChild(fileNameText);
+            row.appendChild(cellFileName);
+
+            var cellOldSize = document.createElement("td");
+            var oldSizeText = document.createTextNode(oldSize);
+            cellOldSize.appendChild(oldSizeText);
+            row.appendChild(cellOldSize);
+
+            var cellNewSize = document.createElement("td");
+            var newSizeText = document.createTextNode(newSize);
+            cellNewSize.appendChild(newSizeText);
+            row.appendChild(cellNewSize);
+            
+            row.style.backgroundColor = sizeDifference < 0 ? '#90EE90' : '#FFCCCB';
+            sizeDiffTableBody.appendChild(row);
+         }
+
+         function convertToBytes(sizeString) {
+            var bytes = 0;
+            let sizeCharacter = sizeString.substr(sizeString.length - 1);
+            // console.log(sizeString);
+            // console.log(sizeCharacter);
+            if (sizeCharacter == "K") {
+               // console.log(sizeString.substr(0, sizeString.length - 1));
+               bytes = parseFloat(sizeString.substr(0, sizeString.length - 1)) * 1024;
+            } else if (sizeCharacter == "M") {
+               // console.log(sizeString.substr(0, sizeString.length - 1));
+               bytes = parseFloat(sizeString.substr(0, sizeString.length - 1)) * 1024 * 1024;
+            } else if (sizeCharacter == "G") {
+               // console.log(sizeString.substr(0, sizeString.length - 1));
+               bytes = parseFloat(sizeString.substr(0, sizeString.length - 1)) * 1024 * 1024 * 1024;
+            } else {
+               bytes = parseFloat(sizeString.substr(0, sizeString.length)) * 1024 * 1024;
+            }
+            // console.log(bytes);
+            return bytes;
+         }
+
+         function drawDirectoryChart()
+         {
+            var newFile = new XMLHttpRequest();
+            newFile.open("GET", "./app-directory-size-master.txt", false);
+            newFile.setRequestHeader('X-Requested-With', 'XMLHttpRequest'); 
+            newFile.setRequestHeader('Access-Control-Allow-Origin', '*');
+
+            newFile.onreadystatechange = function () {
+               // File fetch is complete when ready state is 4
+               if((newFile.readyState === 4) && (newFile.status === 200 || newFile.status == 0)) {
+                  ////////////////////////////////////////////////////////////
+
+                  var oldFile = new XMLHttpRequest();
+                  oldFile.open("GET", "./app-directory-size-last-release.txt", false);
+                  oldFile.setRequestHeader('X-Requested-With', 'XMLHttpRequest'); 
+                  oldFile.setRequestHeader('Access-Control-Allow-Origin', '*');
+
+                  oldFile.onreadystatechange = function () {
+                     // File fetch is complete when ready state is 4
+                     if((oldFile.readyState === 4) && (oldFile.status === 200 || oldFile.status == 0)) {
+
+                        var oldAllText = oldFile.responseText;
+                        var oldFiles = oldAllText.split(/\r?\n/);
+                  
+                        // Remove last empty line of the file
+                        oldFiles.pop();
+
+                        var filePathsAndOldSizes = oldFiles.map( function(item) {
+                           var oldSizeAndFullPath = item.split(/\t/);
+
+                           if(!(typeof oldSizeAndFullPath[1] === 'undefined')) {
+
+                              var filePathAndOldSize = [];
+
+                              filePathAndOldSize.push(oldSizeAndFullPath[1]);
+                              filePathAndOldSize.push(oldSizeAndFullPath[0]);
+                                 
+                              // console.log("OLD RATTAN");
+                              // console.log(filePathAndOldSize);
+                              return filePathAndOldSize;
+                           }
+                        });
+
+                        // Additional array of old file paths. Used below to find the file path
+                        var oldFilePaths = filePathsAndOldSizes.map( function(value, index) {
+                           return value[0];
+                        })
+                        
+                        // console.log("OLD RATTAN");
+                        // console.log(oldFilePaths);
+
+                        /// Comparison logic between new file and old file
+                        /// Used for tooltip
+                        var fileNameAndSizeDiffArray = []
+
+                        ///////////////////////////////////////////////////////////
+                        var allText = newFile.responseText;
+                        var files = allText.split(/\r?\n/);
+                        
+                        // Remove last empty line of the file
+                        files.pop();
+
+                        var sizesAndFiles = files.map( function(item) {
+                           var sizeAndFullPath = item.split(/\t/);
+                           let newFileSize = sizeAndFullPath[0];
+                           let newFileSizeBytes = convertToBytes(newFileSize);
+
+                           if(!(typeof sizeAndFullPath[1] === 'undefined')) {
+                              var fileHierarchy = sizeAndFullPath[1].split("/").reverse();
+                              var fileParentAndSize = [];
+
+                              /// These checks are to handle case where file name is same in directory level L1 and L2.
+                              /// We make dictonary of the form ["L2/L3, L1/L2"]
+                              if(typeof fileHierarchy[1] === 'undefined') {
+                                 fileParentAndSize.push(fileHierarchy[0]);
+                              } else {
+                                 fileParentAndSize.push(fileHierarchy[1] + "/" + fileHierarchy[0]);
+                              }
+                              
+                              if(typeof fileHierarchy[2] === 'undefined') {
+                                 fileParentAndSize.push(fileHierarchy[1]);
+                              } else {
+                                 fileParentAndSize.push(fileHierarchy[2] + "/" + fileHierarchy[1]);
+                              }
+
+                              fileParentAndSize.push(newFileSizeBytes);
+                              
+                              /// Logic to calculate size difference between old and new
+                              let index = oldFilePaths.findIndex(filePath => filePath === sizeAndFullPath[1]);
+                              
+                              var sizeDifference = 0;
+                              var oldFileSize = "NA";
+                              
+                              if(index >= 0) {
+                                 oldFileSize = filePathsAndOldSizes[index][1];
+                                 let oldFileSizeBytes = convertToBytes(oldFileSize);
+                                 sizeDifference = newFileSizeBytes - oldFileSizeBytes;
+                              } else {
+                                 /// File is in new array but not in the old array
+                                 /// This means a new file is added
+                                 sizeDifference = newFileSizeBytes - 0;
+                              }
+
+                              /// Store in array for displaying size on tooltip
+                              var fileNameAndSizeDiff = []
+                              fileNameAndSizeDiff.push(fileHierarchy[0])
+                              fileNameAndSizeDiff.push(sizeDifference)
+                              fileNameAndSizeDiff.push(newFileSize)
+                              fileNameAndSizeDiff.push(oldFileSize)
+                              fileNameAndSizeDiffArray.push(fileNameAndSizeDiff)
+
+                              /// Logging
+                              if(sizeDifference!=0) {
+                                 insertRowInSizeDiffTable(fileParentAndSize[0], oldFileSize, newFileSize, sizeDifference);
+                                 console.log(fileHierarchy[0], ": " + oldFileSize + " --> " + newFileSize);
+                              }
+
+                              fileParentAndSize.push(sizeDifference);
+                              return fileParentAndSize;
+                           }
+                        });
+
+                        /// Normalisation of size difference 
+                        /// Approach to normalise
+                        /// This is all done to make sure colors are represented properly on the graph
+                        /// For eg: If array is [1,0,0,0,-1] => then 1 is green and -1 is red and rest all are gray.
+                        /// Bring all positive values in the scale of 0 to 1
+                        /// Bring all negative values in the scale of 0 to -1
+
+                        var sizeDiffs = sizesAndFiles.map( function(value, index) {
+                           return value[3];
+                        })
+
+                        console.log("ALL FILE AND SIZES")
+                        sizesAndFiles.map( function(value, index) {
+                           if (value[3] != 0) {
+                              console.log(value[0], value[3]);
+                           }
+                        })
+
+                        /// Since last element is `dSYMs` This is to make sure, that is not taken iinto consideration during normalisation
+                        /// And hence it's size is set to 0
+                        sizeDiffs[sizeDiffs.length - 1] = 0;
+
+                        var maxDiffValue = Math.max(-9999999999, Math.max(...sizeDiffs));
+                        var minDiffValue = Math.min(99999999999, Math.min(...sizeDiffs));
+
+                        // console.log("SIZE ARRAY: " + sizeDiffs);
+                        
+                        // var sizeDiffs = sizeDiffs.map( function(value, index) {
+                        //    /// Scaling only all positive values to 1 and negative values to -1.
+                        //    /// This is correctly done by setting the option of maxColorValue and minColorValue in graph below.
+                        //    /// So, commenting this logic out fot now.
+                        //    if(value > 0) {
+                        //       return 1;
+                        //    } else if (value == 0) {
+                        //       return 0;
+                        //    } else {
+                        //       return -1;
+                        //    }
+                           
+                        //    /// Color coding with relative normalisation is not working at the moment. So, commenting that logic out for time being.
+                        //    /*
+                        //    if(value >= 0) {
+                        //       if(maxDiffValue == 0) {
+                        //          return value;
+                        //       } else {
+                        //          return value/maxDiffValue;
+                        //       }
+                        //    } else {
+                        //       if(minDiffValue == 0) {
+                        //          return value;
+                        //       } else {
+                        //          return value/Math.abs(minDiffValue);
+                        //       }
+                        //    }
+                        //    */
+                        // });
+
+                        // console.log("NORMALISED SIZE ARRAY: " + sizeDiffs);
+
+                        /// Replacing last column of size difference with the normalised size value
+                        sizesAndFiles = sizesAndFiles.map(function(value, index) {
+                           var newArray = value.slice(0, -1);
+                           newArray.push(sizeDiffs[index]);
+                           return newArray;
+                        });
+
+
+                        // TODO: Rename these headers
+                        sizesAndFiles = [['A', 'B', 'C', 'D']].concat(sizesAndFiles);
+                        // alert(sizesAndFiles);
+
+                        var data = new google.visualization.DataTable();
+                        var data = google.visualization.arrayToDataTable(sizesAndFiles);
+                           
+                        var options = {      
+                           minColor: '#0d0',
+                           midColor: '#ddd',
+                           maxColor: '#f00',
+                           headerHeight: 15,
+                           fontColor: 'black',
+                           showScale: true,
+                           generateTooltip: showFullTooltip,
+                           maxColorValue: 1,
+                           minColorValue: -1
+                        };
+
+                        var prettyFileSizes = files.map( function(item) {
+                           var sizeAndFullPath = item.split(/\t/);
+                           var size = sizeAndFullPath[0];
+
+                           if(!(typeof sizeAndFullPath[0] === 'undefined')) {
+                              return size;
+                           }
+                        });
+                              
+                        /// Tooltip formatting
+                        function showFullTooltip(row, size, value) {
+                           /// We are relying on the fact that all entries are stored in correct sorted order in `fileNameAndSizeDiffArray` array
+                           if(!(typeof fileNameAndSizeDiffArray[row] === 'undefined')) {
+                              return '<div style="background:#383838; color:#fff; padding:15px; border-style:solid; border-width: thin; border-radius: 10px;">' +
+                              '<span style="font-family:Courier New"><b>' + data.getValue(row, 0) + '</b><br><br>' +
+                              // 'Name: ' + fileNameAndSizeDiffArray[row][0] + '<br>' + 
+                              'New size: ' + fileNameAndSizeDiffArray[row][2] + ' (' + convertToBytes(fileNameAndSizeDiffArray[row][2]) + ' bytes) <br>' + 
+                              'Old size: ' + fileNameAndSizeDiffArray[row][3] + ' (' + convertToBytes(fileNameAndSizeDiffArray[row][3]) + ' bytes) <br>' + 
+                              'Delta: ' + fileNameAndSizeDiffArray[row][1] + ' bytes' + '<br>' + 
+                              '</span>' + ' </div>';
+                           }
+                        }
+
+                        // Instantiate and draw the chart.
+                        var chart = new google.visualization.TreeMap(document.getElementById('container'));
+                        chart.draw(data, options);
+
+                     }
+                  }  
+                  oldFile.send(null);
+               }
+            }
+            newFile.send(null);
+         }
+
+         function drawChart() {
+
+            // var data = new google.visualization.DataTable();
+            // var data = google.visualization.arrayToDataTable([
+            //    ['Location', 'Parent', 'Market trade volume (size)'],
+            //    ['Global',    null,                 0                            ],
+            //    ['America',   'Global',             0                               ],
+            //    ['Europe',    'Global',             0                          ],
+            //    ['Asia',      'Global',             0                               ],
+            //    ['Australia', 'Global',             0                               ],
+            //    ['Africa',    'Global',             0                               ],  
+               
+            //    ['USA',       'America',            52                              ],
+            //    ['Mexico',    'America',            24                             ],
+            //    ['Canada',    'America',            16                              ],
+               
+            //    ['France',    'Europe',             42                              ],
+            //    ['Germany',   'Europe',             31                              ],
+            //    ['Sweden',    'Europe',             22                              ],   
+               
+            //    ['China',     'Asia',               36                             ],
+            //    ['Japan',     'Asia',               20                              ],
+            //    ['India',     'Asia',               40                             ],                  
+               
+            //    ['Egypt',     'Africa',             21                             ],          
+            //    ['Congo',     'Africa',             10                             ],
+            //    ['Zaire',     'Africa',             8                              ]
+            // ]);
+            
+            // var options = {      
+            //    minColor: '#f00',
+            //    midColor: '#ddd',
+            //    maxColor: '#0d0',
+            //    headerHeight: 15,
+            //    fontColor: 'black',
+            //    showScale: true
+            // };
+                  
+            // // Instantiate and draw the chart.
+            // var chart = new google.visualization.TreeMap(document.getElementById('container'));
+            // chart.draw(data, options);
+         }
+         google.charts.setOnLoadCallback(drawDirectoryChart);
+      </script>
+   </body>
+</html>

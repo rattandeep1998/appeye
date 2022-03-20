@@ -1,0 +1,161 @@
+<html>
+   <head>
+      <title>Mint iOS App Size</title>
+      <script type = "text/javascript" src = "https://www.gstatic.com/charts/loader.js">
+      </script>
+      <script type = "text/javascript" src = "https://www.google.com/jsapi">
+      </script>
+      <script type = "text/javascript">
+         google.charts.load('current', {packages: ['treemap']});     
+      </script>
+   </head>
+   
+   <body>
+      <p align="center">
+         <h2 style="text-align: center;">Mint iOS App Scan</h2>
+         <div id = "container" style = "width: 90%; height: 80%; margin: 0 auto">
+         </div>
+      </p>
+
+      <script language = "JavaScript">
+        
+        function convertToBytes(sizeString) {
+            var bytes = 0;
+            let sizeCharacter = sizeString.substr(sizeString.length - 1);
+            // console.log(sizeString);
+            // console.log(sizeCharacter);
+            if (sizeCharacter == "K") {
+               // console.log(sizeString.substr(0, sizeString.length - 1));
+               bytes = parseInt(sizeString.substr(0, sizeString.length - 1)) * 1024;
+            } else if (sizeCharacter == "M") {
+               // console.log(sizeString.substr(0, sizeString.length - 1));
+               bytes = parseInt(sizeString.substr(0, sizeString.length - 1)) * 1024 * 1024;
+            } else {
+               bytes = parseInt(sizeString.substr(0, sizeString.length)) * 1024 * 1024;
+            }
+            // console.log(bytes);
+            return bytes;
+        }
+
+         function drawDirectoryChart()
+         {
+            var rawFile = new XMLHttpRequest();
+            rawFile.open("GET", "./mint-app-size.txt", false);
+            rawFile.setRequestHeader('X-Requested-With', 'XMLHttpRequest'); 
+            rawFile.setRequestHeader('Access-Control-Allow-Origin', '*');
+
+            rawFile.onreadystatechange = function () {
+               // File fetch is complete when ready state is 4
+               if((rawFile.readyState === 4) && (rawFile.status === 200 || rawFile.status == 0)) {
+                  var allText = rawFile.responseText;
+                  var files = allText.split(/\r?\n/);
+                  
+                  // Remove last empty line of the file
+                  files.pop();
+
+                  var sizesAndFiles = files.map( function(item) {
+                     var sizeAndFullPath = item.split(/\t/);
+                     var size = sizeAndFullPath[0];
+
+                     if(!(typeof sizeAndFullPath[1] === 'undefined')) {
+                        var fileHierarchy = sizeAndFullPath[1].split("/").reverse();
+                        var fileParentAndSize = [];
+
+                        fileParentAndSize.push(fileHierarchy[0]);
+                        fileParentAndSize.push(fileHierarchy[1]);
+                        fileParentAndSize.push(convertToBytes(size));
+                                 
+                        // fileParentAndSize.push((Math.random() * 200) - 100);
+
+                        console.log("RATTAN");
+                        console.log(fileParentAndSize);
+                        return fileParentAndSize;
+                     }
+                  });
+                        
+                  sizesAndFiles = [['A', 'B', 'C']].concat(sizesAndFiles);
+                  // alert(sizesAndFiles);
+
+                  var data = new google.visualization.DataTable();
+                  var data = google.visualization.arrayToDataTable(sizesAndFiles);
+                     
+                  var options = {      
+                     minColor: '#0d0',
+                     midColor: '#ddd',
+                     maxColor: '#f00',
+                     headerHeight: 15,
+                     fontColor: 'black',
+                     showScale: true,
+                     generateTooltip: showFullTooltip
+                  };
+
+                  var prettyFileSizes = files.map( function(item) {
+                     var sizeAndFullPath = item.split(/\t/);
+                     var size = sizeAndFullPath[0];
+
+                     if(!(typeof sizeAndFullPath[0] === 'undefined')) {
+                        return size;
+                     }
+                  });
+                        
+                  /// Tooltip formatting
+                  function showFullTooltip(row, size, value) {
+                     return '<div style="background:#fd9; padding:10px; border-style:solid">' +
+                        '<span style="font-family:Courier"><b>' + data.getValue(row, 0) + '</b><br>' +
+                        'Size: ' + prettyFileSizes[row] + ' (' + size + ' bytes) <br></span>' + ' </div>';
+                  }
+
+                  // Instantiate and draw the chart.
+                  var chart = new google.visualization.TreeMap(document.getElementById('container'));
+                  chart.draw(data, options);
+               }
+            }
+            rawFile.send(null);
+         }
+
+         function drawChart() {
+
+            // var data = new google.visualization.DataTable();
+            // var data = google.visualization.arrayToDataTable([
+            //    ['Location', 'Parent', 'Market trade volume (size)'],
+            //    ['Global',    null,                 0                            ],
+            //    ['America',   'Global',             0                               ],
+            //    ['Europe',    'Global',             0                          ],
+            //    ['Asia',      'Global',             0                               ],
+            //    ['Australia', 'Global',             0                               ],
+            //    ['Africa',    'Global',             0                               ],  
+               
+            //    ['USA',       'America',            52                              ],
+            //    ['Mexico',    'America',            24                             ],
+            //    ['Canada',    'America',            16                              ],
+               
+            //    ['France',    'Europe',             42                              ],
+            //    ['Germany',   'Europe',             31                              ],
+            //    ['Sweden',    'Europe',             22                              ],   
+               
+            //    ['China',     'Asia',               36                             ],
+            //    ['Japan',     'Asia',               20                              ],
+            //    ['India',     'Asia',               40                             ],                  
+               
+            //    ['Egypt',     'Africa',             21                             ],          
+            //    ['Congo',     'Africa',             10                             ],
+            //    ['Zaire',     'Africa',             8                              ]
+            // ]);
+            
+            // var options = {      
+            //    minColor: '#f00',
+            //    midColor: '#ddd',
+            //    maxColor: '#0d0',
+            //    headerHeight: 15,
+            //    fontColor: 'black',
+            //    showScale: true
+            // };
+                  
+            // // Instantiate and draw the chart.
+            // var chart = new google.visualization.TreeMap(document.getElementById('container'));
+            // chart.draw(data, options);
+         }
+         google.charts.setOnLoadCallback(drawDirectoryChart);
+      </script>
+   </body>
+</html>
