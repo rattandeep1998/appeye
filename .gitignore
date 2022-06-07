@@ -5,3 +5,4 @@ App-Last-Release.app
 output/*
 app-directory-size-master.txt
 app-directory-size-last-release.txt
+.DS_Store
